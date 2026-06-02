@@ -17,9 +17,28 @@ import proxyRouter from './routes/proxy';
 const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
 
-// ── Middleware ───────────────────────────────────────────────
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      /^http:\/\/192\.168\.\d+\.\d+:3000$/.test(origin) ||
+                      /^http:\/\/10\.\d+\.\d+\.\d+:3000$/.test(origin) ||
+                      /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+:3000$/.test(origin) ||
+                      origin.endsWith('.vercel.app');
+                      
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(null, false); // Fail silently or pass false to let browser block it
+    }
+  },
   credentials: true,
 }));
 
