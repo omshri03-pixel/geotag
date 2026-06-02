@@ -47,7 +47,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Authentication API error:', error);
-    return res.status(500).json({ error: 'Server authentication failure' });
+    return res.status(500).json({ error: `Server authentication failure: ${error.message || error}` });
   }
 });
 
