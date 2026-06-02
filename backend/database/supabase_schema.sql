@@ -76,14 +76,19 @@ ALTER TABLE saved_locations ENABLE ROW LEVEL SECURITY;
 -- Allow full access via service_role key (used server-side via DATABASE_URL)
 -- These policies allow the Next.js API routes (which use the service role connection) 
 -- to read/write all rows without restriction.
+DROP POLICY IF EXISTS "service_role full access on users" ON users;
 CREATE POLICY "service_role full access on users"
     ON users FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "service_role full access on projects" ON projects;
 CREATE POLICY "service_role full access on projects"
     ON projects FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "service_role full access on images" ON images;
 CREATE POLICY "service_role full access on images"
     ON images FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "service_role full access on saved_locations" ON saved_locations;
 CREATE POLICY "service_role full access on saved_locations"
     ON saved_locations FOR ALL USING (true) WITH CHECK (true);
+
