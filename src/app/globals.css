@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  /* LocalLens AI Premium Color Theme */
+  --color-brand: #F25623; /* Vibrant Orange Accents */
+  --color-brand-hover: #FC6E3F; /* Premium Lightened Orange Hover */
+  
+  --color-bg: #171717; /* Slate Black background tone */
+  --color-bg-panel: #222222; /* Sleek Deep Grey Panel Container */
+  --color-bg-hover: #2E2E2E; /* Slate Grey Card hover background */
+  
+  --color-text-main: #DEDEDE; /* Crisp Stark White-Grey text */
+  --color-text-muted: #8F8F8F; /* Neutral readable dark gray body text */
+  
+  --color-border: #4D4D4D; /* Dark Gray outlines and boundary lines */
+  
+  --color-accent-green: #B5E285; /* Sage Success State */
+  --color-accent-mauve: #E05C5C; /* warnings Alert colors */
+
+  /* Tailwind v4 Font Overrides */
+  --font-sans: var(--font-outfit), sans-serif;
+  --font-syne: var(--font-syne), sans-serif;
+}
+
+:root {
+  --background: var(--color-bg);
+  --foreground: var(--color-text-main);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-outfit), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-outfit), sans-serif;
+  letter-spacing: -0.015em;
+  font-weight: 800;
+  color: #FFFFFF; /* Heading color Stark White */
+}
+
+/* Premium Clean Panel styling */
+.glass {
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+}
+
+/* Professional Card - Stripe / Linear style */
+.premium-card {
+  background: #0A0A0A;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s ease-in-out;
+}
+
+.premium-card:hover {
+  border-color: var(--color-brand);
+  background: #121212;
+}
+
+/* Custom Minimalist Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-brand);
+}
