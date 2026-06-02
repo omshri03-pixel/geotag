@@ -56,9 +56,26 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/proxy', proxyRouter);
 
+import { query } from './lib/db';
+
 // ── Health check ─────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    const dbRes = await query('SELECT NOW()');
+    res.json({ 
+      status: 'ok', 
+      database: 'connected',
+      time: dbRes.rows[0]?.now,
+      timestamp: new Date().toISOString() 
+    });
+  } catch (err: any) {
+    res.status(500).json({ 
+      status: 'error', 
+      database: 'disconnected',
+      error: err.message || err,
+      timestamp: new Date().toISOString() 
+    });
+  }
 });
 
 // ── Start server ──────────────────────────────────────────────
