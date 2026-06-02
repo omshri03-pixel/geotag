@@ -10,7 +10,8 @@ if (connectionString) {
       connectionString,
       ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
         ? false
-        : { rejectUnauthorized: false }
+        : { rejectUnauthorized: false },
+      family: 4
     });
     console.log('PostgreSQL Connection Pool initialized successfully.');
   } catch (err) {
