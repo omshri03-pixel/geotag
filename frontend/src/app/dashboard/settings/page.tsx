@@ -9,6 +9,7 @@ import {
   MapPin, Settings, LogOut, Save, Sliders, FileText, Database, ShieldCheck,
   Plus, Trash2, Globe, Star, Sparkles, Navigation
 } from "lucide-react";
+import { getApiUrl } from "@/lib/utils";
 
 interface SavedLocation {
   id?: number;
@@ -47,7 +48,8 @@ export default function WorkspaceSettings() {
   // Fetch presets and auth data
   const fetchPresets = async (currentUserId: string) => {
     try {
-      const res = await fetch(`/api/settings?userId=${currentUserId}`);
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/settings?userId=${currentUserId}`);
       if (res.ok) {
         const data = await res.json();
         setPresets(data.locations || []);
@@ -107,7 +109,8 @@ export default function WorkspaceSettings() {
 
     setAddingPreset(true);
     try {
-      const res = await fetch("/api/settings", {
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,7 +145,8 @@ export default function WorkspaceSettings() {
     if (!window.confirm("Are you sure you want to delete this custom saved preset?")) return;
 
     try {
-      const res = await fetch(`/api/settings?id=${id}`, {
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/settings?id=${id}`, {
         method: "DELETE"
       });
 

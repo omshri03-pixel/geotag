@@ -9,6 +9,7 @@ import {
   Trash2, ChevronRight, Settings, Users, LogOut, BarChart3, X, ShieldAlert, Sparkles, Globe, Navigation,
   Wand2, Copy, CheckCheck, Loader2, MessageSquare
 } from "lucide-react";
+import { getApiUrl } from "@/lib/utils";
 
 interface Project {
   id: number;
@@ -53,7 +54,8 @@ export default function Dashboard() {
     setAiLoading(true);
     setAiResults([]);
     try {
-      const res = await fetch("/api/ai", {
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -86,7 +88,8 @@ export default function Dashboard() {
       const userId = localStorage.getItem("buzz_user_id") || "0";
       const role = localStorage.getItem("buzz_user_role") || "user";
       
-      const res = await fetch(`/api/projects?userId=${userId}&role=${role}`);
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/projects?userId=${userId}&role=${role}`);
       if (res.ok) {
         const data = await res.json();
         setProjects(data.projects || []);
@@ -118,8 +121,9 @@ export default function Dashboard() {
 
     setSubmitting(true);
     try {
+      const API_URL = getApiUrl();
       const userId = localStorage.getItem("buzz_user_id") || "1";
-      const res = await fetch("/api/projects", {
+      const res = await fetch(`${API_URL}/api/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...newProject, userId })
@@ -151,7 +155,8 @@ export default function Dashboard() {
     if (!window.confirm("Are you sure you want to delete this project? All associated processed images will be deleted from database logs.")) return;
 
     try {
-      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/projects/${id}`, { method: "DELETE" });
       if (res.ok) {
         setProjects(prev => prev.filter(p => p.id !== id));
       } else {

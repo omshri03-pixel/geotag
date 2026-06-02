@@ -10,6 +10,7 @@ import {
   Search, CheckCircle2, AlertCircle, Settings, Users as UsersIcon, LogOut,
   DollarSign, TrendingUp, CreditCard, Landmark, Sparkles, Navigation
 } from "lucide-react";
+import { getApiUrl } from "@/lib/utils";
 
 interface Log {
   id: number;
@@ -88,7 +89,8 @@ export default function AdminCenter() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/stats");
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/admin/stats`);
       if (res.ok) {
         const data = await res.json();
         setStats(data.stats);
@@ -110,7 +112,8 @@ export default function AdminCenter() {
     if (!window.confirm("WARNING: Are you sure you want to permanently clear all image processing database logs? This action cannot be undone.")) return;
 
     try {
-      const res = await fetch("/api/admin/clean", { method: "DELETE" });
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/admin/clean`, { method: "DELETE" });
       if (res.ok) {
         alert("Logs cleared successfully.");
         loadData();

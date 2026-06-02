@@ -13,6 +13,7 @@ import {
 import UploadZone, { FileWithMeta } from "@/components/UploadZone";
 import MapPicker from "@/components/MapPicker";
 import * as ExifReader from "exifreader";
+import { getApiUrl } from "@/lib/utils";
 
 interface SavedLocation {
   name: string;
@@ -124,7 +125,8 @@ export default function ProjectWorkspace() {
 
     async function fetchProject() {
       try {
-        const res = await fetch(`/api/projects/${projectId}`);
+        const API_URL = getApiUrl();
+        const res = await fetch(`${API_URL}/api/projects/${projectId}`);
         if (!res.ok) {
           throw new Error("Project not found");
         }
@@ -152,7 +154,8 @@ export default function ProjectWorkspace() {
           // Load presets dynamically from database
           const userId = localStorage.getItem("buzz_user_id") || "1";
           try {
-            const presetsRes = await fetch(`/api/settings?userId=${userId}`);
+            const API_URL = getApiUrl();
+            const presetsRes = await fetch(`${API_URL}/api/settings?userId=${userId}`);
             if (presetsRes.ok) {
               const presetsData = await presetsRes.json();
               if (presetsData.locations && presetsData.locations.length > 0) {
@@ -339,7 +342,8 @@ export default function ProjectWorkspace() {
 
     setIsOptimizingPack(true);
     try {
-      const res = await fetch("/api/ai", {
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -402,7 +406,8 @@ Format: Return ONLY the raw JSON object, no explanation. Example:
     });
 
     try {
-      const res = await fetch("/api/ai", {
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -523,7 +528,8 @@ Format: Return ONLY the raw JSON object, no explanation. Example:
     
     setIsScraping(true);
     try {
-      const res = await fetch(`/api/scrape?url=${encodeURIComponent(scrapeUrl)}`);
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/scrape?url=${encodeURIComponent(scrapeUrl)}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       
@@ -539,7 +545,8 @@ Format: Return ONLY the raw JSON object, no explanation. Example:
       for (let i = 0; i < data.images.length; i++) {
         const imgUrl = data.images[i];
         try {
-          const proxyRes = await fetch(`/api/proxy?url=${encodeURIComponent(imgUrl)}`);
+          const API_URL = getApiUrl();
+          const proxyRes = await fetch(`${API_URL}/api/proxy?url=${encodeURIComponent(imgUrl)}`);
           if (!proxyRes.ok) continue;
           
           const blob = await proxyRes.blob();
@@ -783,7 +790,8 @@ Format: Return ONLY the raw JSON object, no explanation. Example:
         }
       });
 
-      const response = await fetch("/api/process", {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/api/process`, {
         method: "POST",
         body: formData,
       });
