@@ -12,7 +12,7 @@ if (connectionString) {
         ? false
         : { rejectUnauthorized: false },
       family: 4
-    });
+    } as any);
     console.log('PostgreSQL Connection Pool initialized successfully.');
   } catch (err) {
     console.error('Failed to initialize PostgreSQL Connection Pool:', err);
