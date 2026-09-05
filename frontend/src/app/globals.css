@@ -76,3 +76,9 @@ h1, h2, h3, h4, h5, h6 {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-brand);
 }
+
+/* Sleek Dark Mode Filter for OpenStreetMap Tiles — Eliminates Carto Watermarks */
+.dark-map-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(90%);
+}
+

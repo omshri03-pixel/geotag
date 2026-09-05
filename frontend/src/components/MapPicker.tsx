@@ -16,11 +16,49 @@ export default function MapPicker({ location, setLocation, scatterRadius, scatte
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const circleRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
+  const leafletModuleRef = useRef<any>(null);
   const geocodeTimerRef = useRef<any>(null);
   
   const [address, setAddress] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [coords, setCoords] = useState({ lat: 40.7128, lng: -74.006 }); // New York Default
+  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite' | 'streets'>('dark');
+
+  // Change tile layer between Dark, Satellite, and Streets (100% Free, Zero Watermarks, Zero API Key)
+  const updateTileLayer = (style: 'dark' | 'satellite' | 'streets', mapInstance?: any, L?: any) => {
+    const targetMap = mapInstance || mapRef.current;
+    const targetL = L || leafletModuleRef.current;
+    if (!targetMap || !targetL) return;
+
+    if (tileLayerRef.current) {
+      targetMap.removeLayer(tileLayerRef.current);
+    }
+
+    let layer: any;
+    if (style === 'satellite') {
+      layer = targetL.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        attribution: '&copy; Esri World Imagery'
+      });
+    } else if (style === 'streets') {
+      layer = targetL.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors'
+      });
+    } else {
+      // Default: Clean Dark Inverted OpenStreetMap (Zero watermarks, Zero API key)
+      layer = targetL.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        className: 'dark-map-tiles',
+        attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors'
+      });
+    }
+
+    layer.addTo(targetMap);
+    tileLayerRef.current = layer;
+    setMapStyle(style);
+  };
 
   // Debounced reverse geocoding function (prevents OSM 429 rate limit)
   const debouncedReverseGeocode = (lat: number, lng: number) => {
@@ -114,11 +152,10 @@ export default function MapPicker({ location, setLocation, scatterRadius, scatte
       });
 
       const map = L.map(mapContainerRef.current).setView([coords.lat, coords.lng], 13);
+      leafletModuleRef.current = L;
       
-      // Add completely free CartoDB Dark Matter tile layer for an beautiful sleek SaaS visual style
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-      }).addTo(map);
+      // Load free tile layer without watermarks
+      updateTileLayer('dark', map, L);
 
       const marker = L.marker([coords.lat, coords.lng], { draggable: true }).addTo(map);
 
@@ -212,6 +249,37 @@ export default function MapPicker({ location, setLocation, scatterRadius, scatte
 
       {/* Free Interactive Leaflet Map Container */}
       <div className="h-64 w-full bg-bg-panel border border-border rounded-xl overflow-hidden relative z-0">
+        {/* Layer style switcher overlay */}
+        <div className="absolute top-2 right-2 z-[400] flex gap-1 bg-black/80 backdrop-blur-md p-1 rounded-lg border border-border/80 shadow-md">
+          <button
+            type="button"
+            onClick={() => updateTileLayer('dark')}
+            className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+              mapStyle === 'dark' ? 'bg-brand text-black' : 'text-text-muted hover:text-white'
+            }`}
+          >
+            🌙 Dark
+          </button>
+          <button
+            type="button"
+            onClick={() => updateTileLayer('satellite')}
+            className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+              mapStyle === 'satellite' ? 'bg-brand text-black' : 'text-text-muted hover:text-white'
+            }`}
+          >
+            🛰️ Satellite
+          </button>
+          <button
+            type="button"
+            onClick={() => updateTileLayer('streets')}
+            className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+              mapStyle === 'streets' ? 'bg-brand text-black' : 'text-text-muted hover:text-white'
+            }`}
+          >
+            🗺️ Street
+          </button>
+        </div>
+
         <div ref={mapContainerRef} className="w-full h-full" />
       </div>
 
