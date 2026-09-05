@@ -81,7 +81,7 @@ node database/test_db.js
    ```
 3. Run the frontend development server:
    ```bash
-   npm run dev -- --hostname 0.0.0.0
+   npm run dev -- --host
    ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.

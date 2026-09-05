@@ -66,11 +66,13 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setAiResults(data.data);
+      } else if (data.success && typeof data.data === "string") {
+        setAiResults([data.data]);
       } else {
-        alert(data.error || "AI generation failed.");
+        alert(data.details || data.error || "AI generation failed.");
       }
-    } catch (e) {
-      alert("Network error calling AI.");
+    } catch (e: any) {
+      alert("Network error calling AI: " + (e.message || "Please check backend server"));
     } finally {
       setAiLoading(false);
     }
@@ -317,7 +319,7 @@ export default function Dashboard() {
               <h3 className="font-extrabold text-sm text-text-main flex items-center gap-2">
                 <Wand2 className="w-4 h-4 text-brand animate-pulse" />
                 AI SEO Content Generator
-                <span className="text-[9px] font-mono text-brand bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-full">Powered by Llama 3.3 70B</span>
+                <span className="text-[9px] font-mono text-brand bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-full">Powered by NVIDIA NIM AI</span>
               </h3>
               <span className="text-[9px] text-green-400 font-mono bg-green-400/10 border border-green-400/20 px-2 py-0.5 rounded-full">● NVIDIA NIM Active</span>
             </div>

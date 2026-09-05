@@ -1,6 +1,38 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+// Rate limiter: Max 20 scrapes per 15 minutes per IP
+const scrapeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many scrape requests from this IP. Please try again in a few minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.use(scrapeLimiter);
+
+// Helper to block internal SSRF targets
+function isPrivateOrLocalHost(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host === '::1' ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      host.startsWith('172.16.') ||
+      host.startsWith('169.254.') // AWS/GCP/Azure instance metadata
+    );
+  } catch {
+    return true;
+  }
+}
 
 // GET /api/scrape?url=...
 router.get('/', async (req: Request, res: Response) => {
@@ -8,9 +40,13 @@ router.get('/', async (req: Request, res: Response) => {
     const targetUrl = req.query.url as string;
     if (!targetUrl) return res.status(400).json({ error: 'URL query parameter is required' });
 
-    let cleanUrl = targetUrl;
+    let cleanUrl = targetUrl.trim();
     if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
       cleanUrl = 'https://' + cleanUrl;
+    }
+
+    if (isPrivateOrLocalHost(cleanUrl)) {
+      return res.status(403).json({ error: 'Scraping internal or private networks is strictly prohibited.' });
     }
 
     const response = await fetch(cleanUrl, {

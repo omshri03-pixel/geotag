@@ -56,29 +56,29 @@ export default function LoginPage() {
     }
   };
 
-  // Auth flow — tries login first, then signup if user not found
-  const triggerAuthFlow = async (userEmail: string, userName: string) => {
+  // Auth flow — supports real password verification & JWT token storage
+  const triggerAuthFlow = async (userEmail: string, userName: string, userPassword?: string, isExplicitSignup?: boolean) => {
     setLoading(true);
     try {
       const API_URL = getApiUrl();
-      let res = await fetch(`${API_URL}/api/auth`, {
+      const action = isExplicitSignup ? "signup" : (isLogin ? "login" : "signup");
+      const pass = userPassword || password;
+
+      const res = await fetch(`${API_URL}/api/auth`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail, name: userName, action: "login" })
+        body: JSON.stringify({ 
+          email: userEmail, 
+          name: userName, 
+          password: pass, 
+          action 
+        })
       });
-      let data = await res.json();
-
-      if (!res.ok) {
-        res = await fetch(`${API_URL}/api/auth`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: userEmail, name: userName, action: "signup" })
-        });
-        data = await res.json();
-      }
+      const data = await res.json();
 
       if (res.ok && data.user) {
-        localStorage.setItem("buzz_auth_token", "authenticated");
+        localStorage.setItem("buzz_auth_token", data.token || "authenticated");
+        localStorage.setItem("geotagger_token", data.token || "");
         localStorage.setItem("buzz_user_id", data.user.id.toString());
         localStorage.setItem("buzz_user_email", data.user.email);
         localStorage.setItem("buzz_user_name", data.user.name);
@@ -86,7 +86,7 @@ export default function LoginPage() {
         localStorage.setItem("buzz_user_plan", data.user.plan || "Free");
         router.push("/dashboard");
       } else {
-        alert(data.error || "Authentication failed. Please try again.");
+        alert(data.error || "Authentication failed. Please check your credentials.");
       }
     } catch (err) {
       console.error(err);
@@ -140,7 +140,11 @@ export default function LoginPage() {
       alert("Please fill in all required fields.");
       return;
     }
-    await triggerAuthFlow(email, name || email.split("@")[0]);
+    if (!isLogin && password.length < 6) {
+      alert("Password must be at least 6 characters long.");
+      return;
+    }
+    await triggerAuthFlow(email, name || email.split("@")[0], password, !isLogin);
   };
 
   return (
@@ -246,6 +250,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
+                  suppressHydrationWarning
                   className="w-full bg-[#0E0E0E] border border-[#2A2A2A] rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-[#F25623] transition-colors placeholder:text-[#444]"
                   placeholder="name@gmail.com"
                 />

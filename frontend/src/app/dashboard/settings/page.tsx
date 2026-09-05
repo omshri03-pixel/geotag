@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   BarChart3, ShieldAlert, FolderOpen, ImageIcon, 
   MapPin, Settings, LogOut, Save, Sliders, FileText, Database, ShieldCheck,
-  Plus, Trash2, Globe, Star, Sparkles, Navigation
+  Plus, Trash2, Globe, Star, Sparkles, Navigation, Bot, CheckCircle, XCircle, RefreshCw
 } from "lucide-react";
 import { getApiUrl } from "@/lib/utils";
 
@@ -45,6 +45,24 @@ export default function WorkspaceSettings() {
   const [newPresetCity, setNewPresetCity] = useState("");
   const [addingPreset, setAddingPreset] = useState(false);
 
+  // AI Connection State
+  const [aiStatus, setAiStatus] = useState<{ active?: boolean; model?: string; latencyMs?: number; error?: string } | null>(null);
+  const [checkingAi, setCheckingAi] = useState(false);
+
+  const checkAiStatus = async () => {
+    setCheckingAi(true);
+    try {
+      const API_URL = getApiUrl();
+      const res = await fetch(`${API_URL}/api/ai/status`);
+      const data = await res.json();
+      setAiStatus(data);
+    } catch (e: any) {
+      setAiStatus({ active: false, error: e.message || "Failed to reach backend server" });
+    } finally {
+      setCheckingAi(false);
+    }
+  };
+
   // Fetch presets and auth data
   const fetchPresets = async (currentUserId: string) => {
     try {
@@ -81,6 +99,7 @@ export default function WorkspaceSettings() {
     setAltTextPattern(localStorage.getItem("buzz_alt_text_pattern") || "{businessName} - {keyword}");
 
     fetchPresets(currentUserId);
+    checkAiStatus();
   }, [router]);
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -462,6 +481,65 @@ export default function WorkspaceSettings() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* AI Engine & API Status Card */}
+            <div className="bg-bg-panel rounded-xl p-6 border border-border space-y-4 shadow-xl">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-brand" /> AI Engine Status (NVIDIA NIM)
+                </h3>
+                <button
+                  type="button"
+                  onClick={checkAiStatus}
+                  disabled={checkingAi}
+                  className="flex items-center gap-1 text-[11px] text-brand hover:text-brand-hover font-semibold px-2.5 py-1 rounded bg-brand/10 border border-brand/20 transition-all cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 ${checkingAi ? 'animate-spin' : ''}`} />
+                  {checkingAi ? "Testing..." : "Test Connection"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-text-muted block">AI Provider Gateway</span>
+                  <span className="font-semibold text-white">NVIDIA NIM API</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-text-muted block">Active Vision/LLM Model</span>
+                  <span className="font-mono text-xs font-semibold text-white bg-bg px-2 py-0.5 rounded border border-border inline-block">
+                    {aiStatus?.model || "meta/llama-3.2-11b-vision-instruct"}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-text-muted block">Live API Connectivity</span>
+                  <div className="flex items-center gap-1.5">
+                    {aiStatus === null ? (
+                      <span className="text-text-muted text-[11px]">Checking connection...</span>
+                    ) : aiStatus.active ? (
+                      <span className="text-green-400 font-bold flex items-center gap-1 text-[11px]">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-400" /> Connected ({aiStatus.latencyMs}ms)
+                      </span>
+                    ) : (
+                      <span className="text-red-400 font-bold flex items-center gap-1 text-[11px]">
+                        <XCircle className="w-3.5 h-3.5 text-red-400" /> Offline / Check API Key
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-text-muted block">Batch Autopilot Status</span>
+                  <span className="text-brand font-semibold text-[11px]">
+                    {aiStatus?.active ? "Ready for batch EXIF generation" : "Awaiting AI connection"}
+                  </span>
+                </div>
+              </div>
+
+              {aiStatus?.error && (
+                <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/50 text-[11px] text-red-300 font-mono">
+                  {aiStatus.error}
+                </div>
+              )}
             </div>
 
             {/* Save Button */}

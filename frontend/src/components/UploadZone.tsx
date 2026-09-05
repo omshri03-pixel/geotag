@@ -27,7 +27,7 @@ interface UploadZoneProps {
 export default function UploadZone({ files, setFiles, onSelectFile }: UploadZoneProps) {
   const onDrop = useCallback(async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
     if (fileRejections.length > 0) {
-      alert("Some files were rejected. Please ensure they are JPG/JPEG/PNG and under 25MB.");
+      alert("Some files were rejected. Please ensure they are JPG/JPEG/PNG/WEBP and under 25MB.");
     }
     
     // Process files async to read metadata
@@ -59,7 +59,8 @@ export default function UploadZone({ files, setFiles, onSelectFile }: UploadZone
     onDrop,
     accept: {
       "image/jpeg": [".jpg", ".jpeg"],
-      "image/png": [".png"]
+      "image/png": [".png"],
+      "image/webp": [".webp"]
     },
     maxSize: 25 * 1024 * 1024 // 25MB max
   });
@@ -79,7 +80,7 @@ export default function UploadZone({ files, setFiles, onSelectFile }: UploadZone
           {isDragActive ? "Drop images here" : "Drag & drop images, or click to browse"}
         </p>
         <p className="text-xs text-text-muted mt-2">
-          Supports JPG, JPEG, PNG (Max 25MB, up to 100 files)
+          Supports JPG, JPEG, PNG, WEBP (Max 25MB, up to 100 files)
         </p>
       </div>
 
@@ -115,10 +116,20 @@ export default function UploadZone({ files, setFiles, onSelectFile }: UploadZone
                       <span className="text-text-muted flex items-center gap-1"><AlertCircle className="w-3 h-3" /> No GPS Found</span>
                     )}
                     
-                    {f.status === 'success' && <span className="text-green-500 font-medium">Done</span>}
-                    {f.status === 'failed' && <span className="text-red-500 font-medium truncate max-w-[60px]" title={f.errorMessage}>{f.errorMessage}</span>}
-                    {f.status === 'processing' && <span className="text-brand font-medium">Processing...</span>}
-                    {f.status === 'pending' && <span className="text-text-muted">Pending</span>}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onSelectFile(f); }}
+                        className="px-1.5 py-0.5 rounded bg-brand/10 hover:bg-brand/20 text-brand text-[9px] font-bold border border-brand/20 transition-all flex items-center gap-1 cursor-pointer"
+                        title="View Before & After EXIF comparison"
+                      >
+                        🔍 Inspect EXIF
+                      </button>
+                      {f.status === 'success' && <span className="text-green-500 font-medium">Done</span>}
+                      {f.status === 'failed' && <span className="text-red-500 font-medium truncate max-w-[60px]" title={f.errorMessage}>{f.errorMessage}</span>}
+                      {f.status === 'processing' && <span className="text-brand font-medium">Processing...</span>}
+                      {f.status === 'pending' && <span className="text-text-muted">Pending</span>}
+                    </div>
                   </div>
                 </motion.div>
               ))}

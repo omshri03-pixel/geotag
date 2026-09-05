@@ -1,10 +1,14 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { query } from '../lib/db';
+import { requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
+// Enforce Superadmin Authentication on all Admin endpoints
+router.use(requireAdmin);
+
 // GET /api/admin/stats
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const plansRes = await query(`SELECT plan, COUNT(*)::int as count FROM users GROUP BY plan`);
 
@@ -69,7 +73,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/admin/clean
-router.delete('/clean', async (req: Request, res: Response) => {
+router.delete('/clean', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const dbRes = await query(`DELETE FROM images RETURNING id`);
     return res.json({ success: true, message: `Cleared ${dbRes.rowCount} processed image logs successfully.` });

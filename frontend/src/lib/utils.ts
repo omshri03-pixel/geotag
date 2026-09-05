@@ -7,27 +7,37 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Returns the backend API base URL.
- * Uses NEXT_PUBLIC_API_URL env var in production (set to your Railway/Render URL).
- * Falls back to localhost:4000 in local development.
+ * - If NEXT_PUBLIC_API_URL is set, always use it (works for both localhost and remote).
+ * - If accessing from a LAN IP (e.g. 192.168.x.x), auto-detect the backend on port 4000.
+ * - Falls back to http://localhost:4000.
  */
 export function getApiUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  // If explicitly set (like on Vercel) and is a remote URL, use it
-  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+
+  // If an env var is explicitly set, use it.
+  // But if it's pointing to localhost and we are accessing from a different IP (like a LAN IP on a phone), rewrite it.
+  if (envUrl) {
+    if (typeof window !== "undefined" && envUrl.includes("localhost")) {
+      const hostname = window.location.hostname;
+      if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+        return envUrl.replace("localhost", hostname);
+      }
+    }
     return envUrl;
   }
-  
-  // Client-side fallback for local WiFi network or custom local hostnames
+
+  // Client-side: if opened from a LAN IP, point backend to the same host on port 4000
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-    const isLocalIp = /^192\.168\.\d+\.\d+$/.test(hostname) ||
-                      /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
-                      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname) ||
-                      hostname === "127.0.0.1";
+    const isLocalIp =
+      /^192\.168\.\d+\.\d+$/.test(hostname) ||
+      /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname) ||
+      hostname === "127.0.0.1";
     if (isLocalIp) {
-      return `http://${hostname}:4000`;
+      return `http://${hostname}:6767`;
     }
   }
-  
-  return envUrl || "http://localhost:4000";
+
+  return "http://localhost:6767";
 }

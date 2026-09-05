@@ -9,17 +9,23 @@ import { query } from '../lib/db';
 
 const router = Router();
 
-// Use memory storage — files are processed in-memory then written to temp dir
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+// Use disk storage to stream uploads directly to disk and prevent Node.js heap memory exhaustion
+const uploadDir = path.join(os.tmpdir(), 'geotag-uploads');
+const upload = multer({ 
+  dest: uploadDir,
+  limits: { fileSize: 50 * 1024 * 1024, files: 100 }
+});
 
 // POST /api/process
 router.post('/', upload.array('files'), async (req: Request, res: Response) => {
+  console.log(`[POST /api/process] Received request. Number of files: ${req.files ? (req.files as any[]).length : 0}`);
+  let tmpDir: string | null = null;
   try {
     const {
       lat, lng, businessName, keywords, altText,
       renamePattern, projectName, notes, projectId: projectIdStr,
       scatterEnabled, scatterRadius: scatterRadiusStr,
-      outputFormat, aiAutopilot
+      outputFormat, aiAutopilot, quality: qualityStr
     } = req.body;
 
     const files = req.files as Express.Multer.File[];
@@ -61,7 +67,7 @@ router.post('/', upload.array('files'), async (req: Request, res: Response) => {
       }
     }
 
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'geotagger-'));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'geotagger-'));
     const zip = new JSZip();
 
     // AI Autopilot batch generation
@@ -76,9 +82,9 @@ router.post('/', upload.array('files'), async (req: Request, res: Response) => {
             'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`,
           },
           body: JSON.stringify({
-            model: 'meta/llama-3.3-70b-instruct',
+            model: process.env.NVIDIA_MODEL || 'meta/llama-3.2-11b-vision-instruct',
             messages: [
-              { role: 'system', content: 'You are an elite Local SEO image optimization specialist. Return a raw JSON array only.' },
+              { role: 'system', content: 'You are an elite Local SEO image optimization specialist. Return ONLY a valid JSON array of objects, no markdown fences, no explanation.' },
               {
                 role: 'user',
                 content: `Generate unique SEO file names and ALT text for these ${files.length} images for "${businessName || 'Acme Brand'}" focusing on: "${keywords || 'local services'}".
@@ -88,8 +94,7 @@ ${fileListString}
 
 Format: Return ONLY a raw JSON array:
 [
-  { "altText": "custom descriptive SEO ALT text...", "fileName": "custom-seo-filename" },
-  ...
+  { "altText": "custom descriptive SEO ALT text...", "fileName": "custom-seo-filename" }
 ]`
               }
             ],
@@ -102,10 +107,18 @@ Format: Return ONLY a raw JSON array:
         if (response.ok) {
           const resJson = await response.json() as any;
           const content = resJson.choices?.[0]?.message?.content || '';
-          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          const cleaned = content.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+          const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
-            aiOptimizedData = JSON.parse(jsonMatch[0]);
+            try {
+              aiOptimizedData = JSON.parse(jsonMatch[0]);
+            } catch {
+              const sanitized = jsonMatch[0].replace(/,\s*([}\]])/g, '$1');
+              aiOptimizedData = JSON.parse(sanitized);
+            }
           }
+        } else {
+          console.error('AI Autopilot response error status:', response.status, await response.text());
         }
       } catch (aiErr) {
         console.error('AI Autopilot generation error:', aiErr);
@@ -114,9 +127,12 @@ Format: Return ONLY a raw JSON array:
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      let imgBuffer = file.buffer;
+      let imgBuffer = file.path ? await fs.readFile(file.path) : file.buffer;
       const originalName = file.originalname;
       const ext = path.extname(originalName);
+
+      const parsedQuality = parseInt(qualityStr || '85');
+      const safeQuality = Math.min(Math.max(isNaN(parsedQuality) ? 85 : parsedQuality, 40), 100);
 
       const fileLatStr = req.body[`lat_${i}`] || lat;
       const fileLngStr = req.body[`lng_${i}`] || lng;
@@ -138,12 +154,12 @@ Format: Return ONLY a raw JSON array:
         fileLng += randomRadius * Math.sin(randomAngle) / (r_earth * Math.cos(fileLat * pi / 180)) * (180 / pi);
       }
 
-      // Format conversion
+      // Format conversion & image compression
       let outputExt = ext;
       if (format === 'webp') {
         try {
           const sharp = require('sharp');
-          imgBuffer = await sharp(imgBuffer).webp({ quality: 85 }).toBuffer();
+          imgBuffer = await sharp(imgBuffer).webp({ quality: safeQuality }).toBuffer();
           outputExt = '.webp';
         } catch (sharpErr) {
           console.error('Failed to convert to WebP:', sharpErr);
@@ -151,10 +167,17 @@ Format: Return ONLY a raw JSON array:
       } else if (format === 'avif') {
         try {
           const sharp = require('sharp');
-          imgBuffer = await sharp(imgBuffer).avif({ quality: 80 }).toBuffer();
+          imgBuffer = await sharp(imgBuffer).avif({ quality: safeQuality }).toBuffer();
           outputExt = '.avif';
         } catch (sharpErr) {
           console.error('Failed to convert to AVIF:', sharpErr);
+        }
+      } else if (ext.toLowerCase() === '.jpg' || ext.toLowerCase() === '.jpeg') {
+        try {
+          const sharp = require('sharp');
+          imgBuffer = await sharp(imgBuffer).jpeg({ quality: safeQuality }).toBuffer();
+        } catch (sharpErr) {
+          console.error('Failed to optimize JPG:', sharpErr);
         }
       }
 
@@ -188,13 +211,18 @@ Format: Return ONLY a raw JSON array:
       const tempFilePath = path.join(tmpDir, newName);
       await fs.writeFile(tempFilePath, imgBuffer);
 
+      const hasValidCoords = !isNaN(fileLat) && !isNaN(fileLng) && fileLat >= -90 && fileLat <= 90 && fileLng >= -180 && fileLng <= 180;
+
       const exifData: any = {
-        GPSLatitude: fileLat,
-        GPSLatitudeRef: fileLat >= 0 ? 'N' : 'S',
-        GPSLongitude: fileLng,
-        GPSLongitudeRef: fileLng >= 0 ? 'E' : 'W',
         GPSVersionID: '2.3.0.0',
       };
+
+      if (hasValidCoords) {
+        exifData.GPSLatitude = fileLat;
+        exifData.GPSLatitudeRef = fileLat >= 0 ? 'N' : 'S';
+        exifData.GPSLongitude = fileLng;
+        exifData.GPSLongitudeRef = fileLng >= 0 ? 'E' : 'W';
+      }
 
       if (desc) {
         exifData.ImageDescription = desc;
@@ -217,40 +245,36 @@ Format: Return ONLY a raw JSON array:
         exifData.XPTitle = exifData.Title;
       }
 
-      await exiftool.write(tempFilePath, exifData);
-      const verifiedTags = await exiftool.read(tempFilePath);
-      const isVerified = verifiedTags.GPSLatitude !== undefined && verifiedTags.GPSLongitude !== undefined;
-
-      if (isVerified) {
-        const updatedBuffer = await fs.readFile(tempFilePath);
-        zip.file(newName, updatedBuffer);
-
-        if (projectId) {
-          try {
-            await query(
-              `INSERT INTO images (project_id, original_filename, output_filename, file_size, status, latitude, longitude, business_name, keywords) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-              [projectId, originalName, newName, file.size, 'success', fileLat, fileLng, fileBiz || null, fileKeys || null]
-            );
-          } catch (dbErr) {
-            console.error(`Failed to log image ${originalName}:`, dbErr);
+      let status = 'success';
+      try {
+        await exiftool.write(tempFilePath, exifData);
+        if (hasValidCoords) {
+          const verifiedTags = await exiftool.read(tempFilePath);
+          const isVerified = verifiedTags.GPSLatitude !== undefined && verifiedTags.GPSLongitude !== undefined;
+          if (!isVerified) {
+            status = 'partial_metadata_only';
           }
         }
-      } else {
-        console.warn(`Verification failed for ${originalName}`);
-        if (projectId) {
-          try {
-            await query(
-              `INSERT INTO images (project_id, original_filename, output_filename, file_size, status, latitude, longitude, business_name, keywords) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-              [projectId, originalName, newName, file.size, 'failed', fileLat, fileLng, fileBiz || null, fileKeys || null]
-            );
-          } catch (dbErr) {
-            console.error(`Failed to log failure for ${originalName}:`, dbErr);
-          }
+      } catch (exifErr) {
+        console.warn(`EXIF write error for ${originalName}:`, exifErr);
+        status = 'exif_error';
+      }
+
+      // ALWAYS add image to zip - NEVER drop files silently
+      const finalBuffer = await fs.readFile(tempFilePath);
+      zip.file(newName, finalBuffer);
+
+      if (projectId) {
+        try {
+          await query(
+            `INSERT INTO images (project_id, original_filename, output_filename, file_size, status, latitude, longitude, business_name, keywords) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [projectId, originalName, newName, file.size, status, hasValidCoords ? fileLat : null, hasValidCoords ? fileLng : null, fileBiz || null, fileKeys || null]
+          );
+        } catch (dbErr) {
+          console.error(`Failed to log image ${originalName}:`, dbErr);
         }
       }
     }
-
-    await fs.rm(tmpDir, { recursive: true, force: true });
 
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
 
@@ -264,6 +288,19 @@ Format: Return ONLY a raw JSON array:
   } catch (error: any) {
     console.error('EXIF processing error:', error);
     return res.status(500).json({ error: error.message });
+  } finally {
+    // Guaranteed disk cleanup — runs on both success and failure
+    if (tmpDir) {
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
+    const uploadedFiles = req.files as Express.Multer.File[];
+    if (uploadedFiles && Array.isArray(uploadedFiles)) {
+      for (const f of uploadedFiles) {
+        if (f.path) {
+          await fs.unlink(f.path).catch(() => {});
+        }
+      }
+    }
   }
 });
 

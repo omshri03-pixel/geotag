@@ -7,28 +7,36 @@ import "leaflet/dist/leaflet.css";
 interface MapPickerProps {
   location: { lat: number; lng: number } | null;
   setLocation: React.Dispatch<React.SetStateAction<{ lat: number; lng: number } | null>>;
+  scatterRadius?: number;
+  scatterEnabled?: boolean;
 }
 
-export default function MapPicker({ location, setLocation }: MapPickerProps) {
+export default function MapPicker({ location, setLocation, scatterRadius, scatterEnabled }: MapPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const circleRef = useRef<any>(null);
+  const geocodeTimerRef = useRef<any>(null);
   
   const [address, setAddress] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [coords, setCoords] = useState({ lat: 40.7128, lng: -74.006 }); // New York Default
 
-  // Reverse geocoding function
-  const reverseGeocode = async (lat: number, lng: number) => {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&email=geotaggerpro@example.com`);
-      const data = await res.json();
-      if (data && data.display_name) {
-        setAddress(data.display_name);
+  // Debounced reverse geocoding function (prevents OSM 429 rate limit)
+  const debouncedReverseGeocode = (lat: number, lng: number) => {
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+    geocodeTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&email=geotaggerpro@example.com`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.display_name) {
+          setAddress(data.display_name);
+        }
+      } catch (err) {
+        console.warn("Reverse geocoding suppressed:", err);
       }
-    } catch (err) {
-      console.error("Reverse geocoding error:", err);
-    }
+    }, 600);
   };
 
   // Sync coords from external location prop
@@ -118,14 +126,14 @@ export default function MapPicker({ location, setLocation }: MapPickerProps) {
       marker.on("dragend", () => {
         const newLatLng = marker.getLatLng();
         setLocation({ lat: newLatLng.lat, lng: newLatLng.lng });
-        reverseGeocode(newLatLng.lat, newLatLng.lng);
+        debouncedReverseGeocode(newLatLng.lat, newLatLng.lng);
       });
 
       // Click map handler
       map.on("click", (e: any) => {
         marker.setLatLng(e.latlng);
         setLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
-        reverseGeocode(e.latlng.lat, e.latlng.lng);
+        debouncedReverseGeocode(e.latlng.lat, e.latlng.lng);
       });
 
       mapRef.current = map;
@@ -133,6 +141,10 @@ export default function MapPicker({ location, setLocation }: MapPickerProps) {
     });
 
     return () => {
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+      if (circleRef.current && mapRef.current) {
+        mapRef.current.removeLayer(circleRef.current);
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -145,7 +157,7 @@ export default function MapPicker({ location, setLocation }: MapPickerProps) {
     };
   }, []);
 
-  // Sync leaflet view and marker whenever coords state is updated
+  // Sync leaflet view, marker, and scatter circle whenever coords or scatter settings change
   useEffect(() => {
     if (mapRef.current && markerRef.current) {
       const center = mapRef.current.getCenter();
@@ -153,8 +165,28 @@ export default function MapPicker({ location, setLocation }: MapPickerProps) {
         mapRef.current.setView([coords.lat, coords.lng], mapRef.current.getZoom());
         markerRef.current.setLatLng([coords.lat, coords.lng]);
       }
+
+      // Update Scatter Radius Circle Visualization
+      import("leaflet").then((L) => {
+        if (!mapRef.current) return;
+        if (circleRef.current) {
+          mapRef.current.removeLayer(circleRef.current);
+          circleRef.current = null;
+        }
+
+        if (scatterEnabled && scatterRadius && scatterRadius > 0) {
+          circleRef.current = L.circle([coords.lat, coords.lng], {
+            radius: scatterRadius,
+            color: "#FF5500",
+            fillColor: "#FF5500",
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: "4, 4"
+          }).addTo(mapRef.current);
+        }
+      });
     }
-  }, [coords]);
+  }, [coords, scatterRadius, scatterEnabled]);
 
   return (
     <div className="space-y-4">

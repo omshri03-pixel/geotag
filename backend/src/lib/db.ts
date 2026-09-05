@@ -11,9 +11,26 @@ if (connectionString) {
       ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
         ? false
         : { rejectUnauthorized: false },
-      family: 4
+      family: connectionString.includes('localhost') || connectionString.includes('127.0.0.1') ? 4 : undefined,
+      connectionTimeoutMillis: 5000,   // fail fast if DB is unreachable
+      idleTimeoutMillis: 30000,
     } as any);
     console.log('PostgreSQL Connection Pool initialized successfully.');
+    // Run lightweight schema self-heal
+    pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+      CREATE TABLE IF NOT EXISTS saved_locations (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE DEFAULT 1,
+        name VARCHAR(255) NOT NULL,
+        lat DECIMAL(10, 8) NOT NULL,
+        lng DECIMAL(11, 8) NOT NULL,
+        city VARCHAR(255) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `)
+      .then(() => console.log('Database schema verified (password_hash & saved_locations ready).'))
+      .catch((e: any) => console.warn('Schema verification notice:', e.message));
   } catch (err) {
     console.error('Failed to initialize PostgreSQL Connection Pool:', err);
   }

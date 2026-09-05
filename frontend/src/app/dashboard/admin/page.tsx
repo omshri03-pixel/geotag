@@ -90,7 +90,12 @@ export default function AdminCenter() {
     setLoading(true);
     try {
       const API_URL = getApiUrl();
-      const res = await fetch(`${API_URL}/api/admin/stats`);
+      const token = localStorage.getItem("geotagger_token") || localStorage.getItem("buzz_auth_token") || "";
+      const res = await fetch(`${API_URL}/api/admin/stats`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setStats(data.stats);
@@ -113,7 +118,13 @@ export default function AdminCenter() {
 
     try {
       const API_URL = getApiUrl();
-      const res = await fetch(`${API_URL}/api/admin/clean`, { method: "DELETE" });
+      const token = localStorage.getItem("geotagger_token") || localStorage.getItem("buzz_auth_token") || "";
+      const res = await fetch(`${API_URL}/api/admin/clean`, { 
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         alert("Logs cleared successfully.");
         loadData();

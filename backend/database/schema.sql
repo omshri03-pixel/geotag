@@ -1,11 +1,12 @@
 -- schema.sql
--- Run this script inside pgAdmin 4 Query Tool to set up your PostgreSQL Database.
+-- Run this script inside pgAdmin 4 Query Tool or psql to set up your PostgreSQL Database.
 
--- 1. Create Users table (with default local user)
+-- 1. Create Users table (with default local user and password security)
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL DEFAULT 'Buzz Agency Admin',
     email VARCHAR(255) UNIQUE NOT NULL DEFAULT 'admin@buzzagency.com',
+    password_hash VARCHAR(255),
     plan VARCHAR(50) DEFAULT 'Agency',
     role VARCHAR(50) DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -38,5 +39,16 @@ CREATE TABLE IF NOT EXISTS images (
     longitude DECIMAL(11, 8),
     business_name VARCHAR(255),
     keywords TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Create Saved Locations (preset shortcuts) table
+CREATE TABLE IF NOT EXISTS saved_locations (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE DEFAULT 1,
+    name VARCHAR(255) NOT NULL,
+    lat DECIMAL(10, 8) NOT NULL,
+    lng DECIMAL(11, 8) NOT NULL,
+    city VARCHAR(255) DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
